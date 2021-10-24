@@ -6,6 +6,7 @@ from PIL import Image
 import imageio
 import os
 import shutil
+import numpy as np
 
 
 class Logger:
@@ -23,13 +24,28 @@ class Logger:
 
         self.save_json('observations', observations)
         self.save_json('rewards', rewards)
+        
+        rail_map = [[sum(cell) for cell in row] for row in observations[0][0]]
+        self.save_json('rail_map', rail_map)
+
+        agent_states = np.transpose(observations[0][1], (2, 0 ,1))
+        self.save_json('agent_states', agent_states)
+        
+        agent_targets = np.transpose(observations[0][2], (2, 0, 1))
+        self.save_json('agent_targets', agent_targets)
+        
 
     def save_json(self, name, data):
         if not os.path.isdir('tmp/' + name):
             os.mkdir('tmp/' + name)
-        data = pd.Series(data).to_json(orient='values')
+        
+        if type(data).__module__ == np.__name__:
+            data = data.tolist()
+        else:        
+            data = pd.Series(data).to_json(orient='values')
+        
         with open('tmp/'+name+'/data-'+str(datetime.now().timestamp())+'.json', 'w') as fp:
-            json.dump(data, fp)
+            json.dump(data, fp, indent=4)
 
     def save(self):
         self.video_recorder.save()
@@ -61,3 +77,20 @@ def save_json(observations):
     data = pd.Series(observations).to_json(orient='values')
     with open('next_observations-'+str(datetime.now().timestamp())+'.json', 'w') as fp:
         json.dump(data, fp)
+
+
+def find_index_in_list(list, target):
+    for index, item in enumerate(list):
+        if item == target:
+            return [index]
+        if isinstance(item, str):
+            return []
+        
+        try:
+            path = find_index_in_list(item, target)
+        except TypeError:
+            pass
+        else:
+            if path:
+                return [index] + path
+    return []
